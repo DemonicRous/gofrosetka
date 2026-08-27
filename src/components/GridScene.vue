@@ -8,8 +8,8 @@ const props = defineProps({
   rows: Number, cols: Number, cellL: Number, cellW: Number, board: Number,
 })
 const host = ref(null)
-const productVisible = ref(true)
-let renderer, scene, camera, controls, gridGroup, product, frame, observer
+const selectedCells = ref(new Set())
+let renderer, scene, camera, controls, gridGroup, frame, observer, hitTargets = [], products = new Map(), pointerStart
 
 const disposeGroup = (group) => {
   group?.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose() })
@@ -20,6 +20,8 @@ const rebuild = () => {
   disposeGroup(gridGroup)
   gridGroup = new THREE.Group()
   scene.add(gridGroup)
+  hitTargets = []
+  products = new Map()
   const unit = 1 / Math.max(props.length * props.cols, props.width * props.rows) * 7
   const totalX = props.cellL * props.cols + props.board * (props.cols - 1) - 5
   const totalZ = props.cellW * props.rows + props.board * (props.rows - 1) - 5
@@ -46,23 +48,42 @@ const rebuild = () => {
   const base = new THREE.Mesh(new THREE.BoxGeometry(totalX * unit + .18, .08, totalZ * unit + .18), new THREE.MeshStandardMaterial({ color: 0x2b332c, roughness: .9 }))
   base.position.y = -.06
   gridGroup.add(base)
-  const productMat = new THREE.MeshPhysicalMaterial({ color: 0x72b8c8, transparent: true, opacity: .42, roughness: .2, transmission: .12, depthWrite: false })
-  product = new THREE.Mesh(new THREE.BoxGeometry(props.length * unit, props.height * unit, props.width * unit), productMat)
-  const firstX = -totalX / 2 + (props.cellL - 2.5) / 2
-  const firstZ = -totalZ / 2 + (props.cellW - 2.5) / 2
-  product.position.set(firstX * unit, props.height * unit / 2, firstZ * unit)
-  product.userData.targetY = product.position.y
-  gridGroup.add(product)
-  product.visible = productVisible.value
-  controls.target.set(0, h * .35, 0)
-  camera.position.set(8.5, 7, 9)
+  const productMat = new THREE.MeshPhysicalMaterial({ color: 0x58b4c7, transparent: true, opacity: .44, roughness: .18, transmission: .18, depthWrite: false })
+  const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  const centers = (count, cell, total) => {
+    let cursor = -total / 2
+    return Array.from({ length: count }, (_, i) => {
+      const size = cell - (i === 0 ? 2.5 : 0) - (i === count - 1 ? 2.5 : 0)
+      const center = cursor + size / 2
+      cursor += size + (i < count - 1 ? props.board : 0)
+      return { center, size }
+    })
+  }
+  const xs = centers(props.cols, props.cellL, totalX), zs = centers(props.rows, props.cellW, totalZ)
+  const valid = new Set()
+  zs.forEach((z, row) => xs.forEach((x, col) => {
+    const key = `${row}:${col}`; valid.add(key)
+    const targetH = Math.max(props.height, props.gridHeight) * unit
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(x.size * unit, targetH, z.size * unit), hitMat.clone())
+    hit.position.set(x.center * unit, targetH / 2, z.center * unit); hit.userData.cellKey = key
+    gridGroup.add(hit); hitTargets.push(hit)
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(props.length * unit, props.height * unit, props.width * unit), productMat.clone())
+    mesh.position.set(x.center * unit, props.height * unit / 2, z.center * unit); mesh.userData.targetY = mesh.position.y; mesh.visible = selectedCells.value.has(key)
+    gridGroup.add(mesh); products.set(key, mesh)
+  }))
+  selectedCells.value = new Set([...selectedCells.value].filter(key => valid.has(key)))
+  controls.target.set(0, h * .5, 0)
+  camera.position.set(9, h * .5 + 6.5, 9)
   controls.update()
 }
 
-const toggleProduct = () => {
-  productVisible.value = !productVisible.value
-  if (productVisible.value) { product.visible = true; product.position.y = product.userData.targetY + 4 }
+const toggleCell = (key) => {
+  const next = new Set(selectedCells.value), mesh = products.get(key)
+  if (next.has(key)) next.delete(key)
+  else { next.add(key); mesh.visible = true; mesh.position.y = mesh.userData.targetY + 4 }
+  selectedCells.value = next
 }
+const clearProducts = () => { selectedCells.value = new Set() }
 
 onMounted(() => {
   scene = new THREE.Scene()
@@ -72,6 +93,13 @@ onMounted(() => {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   renderer.shadowMap.enabled = true
   host.value.appendChild(renderer.domElement)
+  const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2()
+  renderer.domElement.addEventListener('pointerdown', e => { pointerStart = { x: e.clientX, y: e.clientY } })
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!pointerStart || Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) > 5) return
+    const rect = renderer.domElement.getBoundingClientRect(); pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1; pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+    raycaster.setFromCamera(pointer, camera); const hit = raycaster.intersectObjects(hitTargets, false)[0]; if (hit) toggleCell(hit.object.userData.cellKey)
+  })
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.minDistance = 5
@@ -90,8 +118,10 @@ onMounted(() => {
   observer.observe(host.value)
   const animate = () => {
     frame = requestAnimationFrame(animate)
-    if (productVisible.value && product?.visible) product.position.y += (product.userData.targetY - product.position.y) * .09
-    else if (product?.visible) { product.position.y += .11; if (product.position.y > product.userData.targetY + 4) product.visible = false }
+    products.forEach((mesh, key) => {
+      if (selectedCells.value.has(key) && mesh.visible) mesh.position.y += (mesh.userData.targetY - mesh.position.y) * .09
+      else if (mesh.visible) { mesh.position.y += .11; if (mesh.position.y > mesh.userData.targetY + 4) mesh.visible = false }
+    })
     controls.update()
     renderer.render(scene, camera)
   }
@@ -105,7 +135,7 @@ onBeforeUnmount(() => { cancelAnimationFrame(frame); observer?.disconnect(); con
 <template>
   <div class="relative h-[430px] w-full overflow-hidden">
     <div ref="host" class="h-full w-full cursor-grab active:cursor-grabbing"></div>
-    <div class="absolute left-4 top-4 rounded-lg bg-white/80 px-3 py-2 text-xs text-black/55 backdrop-blur">Потяните для вращения · колесо для масштаба</div>
-    <button @click="toggleProduct" class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-xl bg-[#18201a] px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-[#263129]">{{ productVisible ? 'Убрать продукт' : 'Вставить продукт' }}</button>
+    <div class="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-white/80 px-3 py-2 text-xs text-black/55 backdrop-blur">Клик по ячейке — продукт · потяните для вращения · колесо для масштаба</div>
+    <button v-if="selectedCells.size" @click="clearProducts" class="absolute bottom-4 right-4 rounded-xl bg-[#18201a] px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-[#263129]">Очистить · {{ selectedCells.size }}</button>
   </div>
 </template>

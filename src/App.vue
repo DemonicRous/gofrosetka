@@ -2,11 +2,12 @@
 import { ref, computed, defineAsyncComponent } from 'vue'
 import { Box, Grid3X3, Layers3, Download, RotateCcw } from 'lucide-vue-next'
 import StripCanvas from './components/StripCanvas.vue'
+import DieLayoutCanvas from './components/DieLayoutCanvas.vue'
 const GridScene = defineAsyncComponent(() => import('./components/GridScene.vue'))
 
 const profiles = { F: 1, E: 2, D: 2.5, B: 3, C: 4, BE: 5, BD: 5, BC: 7 }
 const edgeTrim = 2.5
-const p = ref({ length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 6 })
+const p = ref({ length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' })
 const active = ref('Чертёж')
 const tabs = ['Чертёж', '3D-модель', 'Развёртка']
 const cellL = computed(() => p.value.length + p.value.gap)
@@ -21,9 +22,39 @@ const crossStrips = computed(() => Math.max(0, p.value.cols - 1))
 const slotDepth = computed(() => stripHeight.value / 2 + 5)
 const longSlotPositions = computed(() => Array.from({ length: crossStrips.value }, (_, i) => (i + 1) * cellL.value + (i + .5) * board.value - edgeTrim))
 const crossSlotPositions = computed(() => Array.from({ length: longStrips.value }, (_, i) => (i + 1) * cellW.value + (i + .5) * board.value - edgeTrim))
-const area = computed(() => ((longStrips.value * innerL.value + crossStrips.value * innerW.value) * stripHeight.value / 1e6).toFixed(3))
+const pieceArea = computed(() => (longStrips.value * innerL.value + crossStrips.value * innerW.value) * stripHeight.value / 1e6)
+const dieLayout = computed(() => {
+  const pieces = [
+    ...Array.from({ length: longStrips.value }, () => ({ w: innerL.value, type: 'L' })),
+    ...Array.from({ length: crossStrips.value }, () => ({ w: innerW.value, type: 'P' })),
+  ].filter(i => i.w > 0).sort((a, b) => b.w - a.w)
+  if (!pieces.length || stripHeight.value > 975 || pieces[0].w > 980) return null
+  let best = null
+  for (let usableW = Math.max(480, Math.ceil(pieces[0].w)); usableW <= 980; usableW++) {
+    const maxRows = Math.floor(975 / stripHeight.value)
+    const maxKits = Math.min(50, Math.floor(usableW * maxRows / pieces.reduce((s, i) => s + i.w, 0)))
+    for (let kits = 1; kits <= maxKits; kits++) {
+      const rows = []
+      const items = Array.from({ length: kits }, (_, kit) => pieces.map(i => ({ ...i, kit: kit + 1 }))).flat().sort((a, b) => b.w - a.w)
+      let fits = true
+      for (const item of items) {
+        let row = rows.find(r => r.used + item.w <= usableW)
+        if (!row) { if (rows.length >= maxRows) { fits = false; break } row = { used: 0, items: [] }; rows.push(row) }
+        row.items.push({ ...item, x: row.used, y: (rows.indexOf(row)) * stripHeight.value, h: stripHeight.value }); row.used += item.w
+      }
+      if (!fits) continue
+      const usedW = Math.max(...rows.map(r => r.used)), sheetW = Math.max(500, Math.ceil(usedW + 20)), sheetH = Math.max(500, Math.ceil(rows.length * stripHeight.value + 25))
+      if (sheetW > 1000 || sheetH > 1000) continue
+      const perKit = sheetW * sheetH / kits / 1e6
+      if (!best || perKit < best.perKit - 1e-9 || (Math.abs(perKit - best.perKit) < 1e-9 && sheetW * sheetH < best.sheetW * best.sheetH)) best = { sheetW, sheetH, kits, perKit, items: rows.flatMap(r => r.items) }
+    }
+  }
+  return best
+})
+const area = computed(() => (p.value.method === 'RODA' ? pieceArea.value : dieLayout.value?.perKit || 0).toFixed(3))
 const cells = computed(() => p.value.rows * p.value.cols)
-const reset = () => p.value = { length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 6 }
+const reset = () => p.value = { length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' }
+const methodChanged = () => { if (p.value.method === 'RODA') p.value.slot = 7 }
 const downloadDrawing = () => {
   const scale = 800 / Math.max(innerL.value, innerW.value)
   const w = innerL.value * scale, h = innerW.value * scale
@@ -52,7 +83,7 @@ const downloadDrawing = () => {
         <div class="space-y-5">
           <section><h2 class="mb-3 text-sm font-medium text-white/75">Габариты продукции</h2><div class="grid grid-cols-3 gap-2"><label v-for="[key,label] in [['length','Длина'],['width','Ширина'],['height','Высота']]" :key="key" class="text-xs text-white/40">{{label}}<input v-model.number="p[key]" type="number" min="1" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none focus:border-[#d9ff64]/60"></label></div></section>
           <section><label class="text-xs text-white/40">Допуск ячейки, всего<input v-model.number="p.gap" type="number" min="0" step="0.5" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><p class="mt-1.5 text-[11px] text-white/30">Например: продукция 100 мм → ячейка 101 мм</p></section>
-          <section><h2 class="mb-3 text-sm font-medium text-white/75">Материал и просечка</h2><div class="grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Профиль<select v-model="p.profile" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option v-for="(thickness, profile) in profiles" :key="profile" :value="profile">{{ profile }} · {{ thickness }} мм</option></select></label><label class="text-xs text-white/40">Просечка<select v-model.number="p.slot" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option :value="6">6 мм</option><option :value="7">7 мм</option></select></label></div></section>
+          <section><h2 class="mb-3 text-sm font-medium text-white/75">Производство</h2><label class="text-xs text-white/40">Способ изготовления<select v-model="p.method" @change="methodChanged" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option value="RODA">RODA</option><option value="DIE">Плоская высечка</option></select></label><div class="mt-2 grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Профиль<select v-model="p.profile" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option v-for="(thickness, profile) in profiles" :key="profile" :value="profile">{{ profile }} · {{ thickness }} мм</option></select></label><label class="text-xs text-white/40">Просечка<select v-model.number="p.slot" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option :value="6">6 мм</option><option :value="7">7 мм</option></select></label></div></section>
           <section><h2 class="mb-3 text-sm font-medium text-white/75">Композиция</h2><div class="grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Колонки<input v-model.number="p.cols" type="number" min="1" max="12" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="text-xs text-white/40">Ряды<input v-model.number="p.rows" type="number" min="1" max="12" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="col-span-2 text-xs text-white/40">Высота решётки<input v-model.number="p.gridHeight" type="number" min="20" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label></div></section>
         </div>
         <button @click="reset" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-sm text-white/55 hover:bg-white/5"><RotateCcw :size="15"/>Сбросить параметры</button>
@@ -65,10 +96,10 @@ const downloadDrawing = () => {
           <div class="grid min-h-[430px] place-items-center p-8">
             <div v-if="active==='Чертёж'" class="relative w-full max-w-[720px]" :style="{aspectRatio: innerL+'/'+innerW}"><div class="absolute inset-0 border-2 border-[#273229] bg-[linear-gradient(135deg,#f7f6ee,#e5e4dc)] shadow-xl"></div><div class="absolute inset-0 grid" :style="{gridTemplateColumns:`repeat(${p.cols},1fr)`,gridTemplateRows:`repeat(${p.rows},1fr)`}"><div v-for="n in cells" :key="n" class="grid place-items-center border border-[#556158]/60 text-[clamp(9px,1.2vw,14px)] text-black/35">{{n}}</div></div><span class="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs">{{ innerL.toFixed(0) }} мм</span><span class="absolute -right-16 top-1/2 -translate-y-1/2 rotate-90 text-xs">{{ innerW.toFixed(0) }} мм</span></div>
             <GridScene v-else-if="active==='3D-модель'" :length="p.length" :width="p.width" :height="p.height" :grid-height="stripHeight" :rows="p.rows" :cols="p.cols" :cell-l="cellL" :cell-w="cellW" :board="board" />
-            <div v-else class="grid w-full gap-5 xl:grid-cols-2"><StripCanvas title="Продольная полоса" :length="innerL" :height="stripHeight" :quantity="longStrips" :slots="longSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" /><StripCanvas title="Поперечная полоса" :length="innerW" :height="stripHeight" :quantity="crossStrips" :slots="crossSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" from-top /></div>
+            <div v-else class="w-full"><DieLayoutCanvas v-if="p.method === 'DIE' && dieLayout" :layout="dieLayout"/><div v-else-if="p.method === 'DIE'" class="grid h-[300px] place-items-center text-center text-black/45"><p>Комплект не помещается на лист 1000 × 1000 мм.<br>Уменьшите размеры или высоту решётки.</p></div><div v-else class="grid gap-5 xl:grid-cols-2"><StripCanvas title="Продольная полоса" :length="innerL" :height="stripHeight" :quantity="longStrips" :slots="longSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" /><StripCanvas title="Поперечная полоса" :length="innerW" :height="stripHeight" :quantity="crossStrips" :slots="crossSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" from-top /></div></div>
           </div>
         </div>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${innerL.toFixed(0)} × ${innerW.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,'Площадь картона',`${area} м²`],[Download,'Комплект / просечка',`${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${innerL.toFixed(0)} × ${innerW.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,p.method === 'RODA' ? 'Фактическая площадь' : 'Площадь на комплект',`${area} м²`],[Download,p.method === 'DIE' && dieLayout ? 'Лист / комплектов' : 'Комплект / просечка',p.method === 'DIE' && dieLayout ? `${dieLayout.sheetW}×${dieLayout.sheetH} · ${dieLayout.kits} шт.` : `${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
         <p class="mt-4 text-xs leading-5 text-white/35">Размер короба: сумма ячеек + перегородки − 2,5 мм с каждой внешней стороны. Предварительный технологический расчёт: перед производством проверьте допуски и направление гофры.</p>
       </section>
     </main>
