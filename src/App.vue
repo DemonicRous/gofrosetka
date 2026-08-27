@@ -1,6 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, defineAsyncComponent } from 'vue'
 import { Box, Grid3X3, Layers3, Download, RotateCcw } from 'lucide-vue-next'
+import StripCanvas from './components/StripCanvas.vue'
+const GridScene = defineAsyncComponent(() => import('./components/GridScene.vue'))
 
 const profiles = { F: 1, E: 2, D: 2.5, B: 3, C: 4, BE: 5, BD: 5, BC: 7 }
 const edgeTrim = 2.5
@@ -16,6 +18,9 @@ const stripHeight = computed(() => Math.max(20, p.value.gridHeight))
 const boxHeight = computed(() => Math.max(p.value.height + p.value.gap, stripHeight.value))
 const longStrips = computed(() => Math.max(0, p.value.rows - 1))
 const crossStrips = computed(() => Math.max(0, p.value.cols - 1))
+const slotDepth = computed(() => stripHeight.value / 2 + 5)
+const longSlotPositions = computed(() => Array.from({ length: crossStrips.value }, (_, i) => (i + 1) * cellL.value + (i + .5) * board.value - edgeTrim))
+const crossSlotPositions = computed(() => Array.from({ length: longStrips.value }, (_, i) => (i + 1) * cellW.value + (i + .5) * board.value - edgeTrim))
 const area = computed(() => ((longStrips.value * innerL.value + crossStrips.value * innerW.value) * stripHeight.value / 1e6).toFixed(3))
 const cells = computed(() => p.value.rows * p.value.cols)
 const reset = () => p.value = { length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 6 }
@@ -59,8 +64,8 @@ const downloadDrawing = () => {
           <div class="flex items-center justify-between border-b border-black/10 px-5 py-3 text-xs uppercase tracking-widest text-black/45"><span>{{ active }}</span><span>масштаб автоматически</span></div>
           <div class="grid min-h-[430px] place-items-center p-8">
             <div v-if="active==='Чертёж'" class="relative w-full max-w-[720px]" :style="{aspectRatio: innerL+'/'+innerW}"><div class="absolute inset-0 border-2 border-[#273229] bg-[linear-gradient(135deg,#f7f6ee,#e5e4dc)] shadow-xl"></div><div class="absolute inset-0 grid" :style="{gridTemplateColumns:`repeat(${p.cols},1fr)`,gridTemplateRows:`repeat(${p.rows},1fr)`}"><div v-for="n in cells" :key="n" class="grid place-items-center border border-[#556158]/60 text-[clamp(9px,1.2vw,14px)] text-black/35">{{n}}</div></div><span class="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs">{{ innerL.toFixed(0) }} мм</span><span class="absolute -right-16 top-1/2 -translate-y-1/2 rotate-90 text-xs">{{ innerW.toFixed(0) }} мм</span></div>
-            <div v-else-if="active==='3D-модель'" class="relative h-[340px] w-full max-w-[620px] [perspective:900px]"><div class="absolute left-1/2 top-1/2 grid h-[250px] w-[440px] -translate-x-1/2 -translate-y-1/2 rotate-x-[62deg] rotate-z-[-28deg] border-4 border-[#2b342d] bg-[#d4b474] shadow-[-30px_35px_35px_#0004]" :style="{gridTemplateColumns:`repeat(${p.cols},1fr)`,gridTemplateRows:`repeat(${p.rows},1fr)`}"><div v-for="n in cells" :key="n" class="border-2 border-[#6a5737] bg-[#f0d79d]/60"></div></div><div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-center"><b>{{cells}} ячеек</b><p class="text-sm text-black/45">внутренний короб {{innerL.toFixed(0)}} × {{innerW.toFixed(0)}} × {{boxHeight.toFixed(0)}} мм</p></div></div>
-            <div v-else class="w-full"><div class="mb-5 space-y-5"><div><p class="mb-2 text-xs font-semibold uppercase tracking-wider text-black/45">Продольные · {{ longStrips }} шт. · {{ innerL.toFixed(0) }} × {{ stripHeight }} мм</p><div class="grid gap-2"><div v-for="n in longStrips" :key="'l'+n" class="relative h-20 w-full border-2 border-[#58472f] bg-[#d8b877]"><span class="absolute left-2 top-2 text-xs">№ {{n}}</span><i v-for="x in crossStrips" :key="x" class="absolute bottom-0 h-1/2 border-x border-[#58472f] bg-[#ecebe4]" :style="{left:((x * cellL + (x - .5) * board - edgeTrim) / innerL * 100)+'%',width:Math.max(3,p.slot/2)+'px'}"></i></div></div></div><div><p class="mb-2 text-xs font-semibold uppercase tracking-wider text-black/45">Поперечные · {{ crossStrips }} шт. · {{ innerW.toFixed(0) }} × {{ stripHeight }} мм</p><div class="grid gap-2"><div v-for="n in crossStrips" :key="'c'+n" class="relative h-20 w-full border-2 border-[#58472f] bg-[#e1c58c]"><span class="absolute left-2 top-2 text-xs">№ {{n}}</span><i v-for="x in longStrips" :key="x" class="absolute top-0 h-1/2 border-x border-[#58472f] bg-[#ecebe4]" :style="{left:((x * cellW + (x - .5) * board - edgeTrim) / innerW * 100)+'%',width:Math.max(3,p.slot/2)+'px'}"></i></div></div></div></div><p class="text-center text-xs text-black/45">Пазы: {{ p.slot }} мм · профиль {{ p.profile }} ({{ board }} мм) · глубина {{ (stripHeight / 2).toFixed(0) }} мм</p></div>
+            <GridScene v-else-if="active==='3D-модель'" :length="p.length" :width="p.width" :height="p.height" :grid-height="stripHeight" :rows="p.rows" :cols="p.cols" :cell-l="cellL" :cell-w="cellW" :board="board" />
+            <div v-else class="grid w-full gap-5 xl:grid-cols-2"><StripCanvas title="Продольная полоса" :length="innerL" :height="stripHeight" :quantity="longStrips" :slots="longSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" /><StripCanvas title="Поперечная полоса" :length="innerW" :height="stripHeight" :quantity="crossStrips" :slots="crossSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" from-top /></div>
           </div>
         </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${innerL.toFixed(0)} × ${innerW.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,'Площадь картона',`${area} м²`],[Download,'Комплект / просечка',`${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
