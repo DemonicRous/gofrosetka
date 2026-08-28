@@ -14,16 +14,16 @@ const draw = () => {
   ctx.fillStyle = '#f8f5ea'; ctx.strokeStyle = '#38433b'; ctx.lineWidth = 2; ctx.fillRect(ox, oy, w, h); ctx.strokeRect(ox, oy, w, h)
   for (const item of props.layout.items) {
     ctx.fillStyle = item.type === 'L' ? '#d8b877' : '#e1c58c'; ctx.strokeStyle = '#725c38'; ctx.lineWidth = 1
-    ctx.fillRect(ox + (item.x + 10) * scale, oy + (item.y + 12.5) * scale, item.w * scale, item.h * scale)
-    ctx.strokeRect(ox + (item.x + 10) * scale, oy + (item.y + 12.5) * scale, item.w * scale, item.h * scale)
-    if (item.w * scale > 42) { ctx.fillStyle = '#443821'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${item.type} · К${item.kit}`, ox + (item.x + 10 + item.w / 2) * scale, oy + (item.y + 12.5 + item.h / 2) * scale + 3) }
+    ctx.fillRect(ox + (item.x + props.layout.offsetX) * scale, oy + (item.y + props.layout.offsetY) * scale, item.w * scale, item.h * scale)
+    ctx.strokeRect(ox + (item.x + props.layout.offsetX) * scale, oy + (item.y + props.layout.offsetY) * scale, item.w * scale, item.h * scale)
+    if (item.w * scale > 42) { ctx.fillStyle = '#443821'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${item.type} · К${item.kit}`, ox + (item.x + props.layout.offsetX + item.w / 2) * scale, oy + (item.y + props.layout.offsetY + item.h / 2) * scale + 3) }
   }
-  ctx.fillStyle = '#28302a'; ctx.font = '700 14px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`Штамп ${props.layout.sheetW} × ${props.layout.sheetH} мм`, ox, 18)
+  ctx.fillStyle = '#28302a'; ctx.font = '700 14px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${props.layout.title} · ${props.layout.sheetW} × ${props.layout.sheetH} мм`, ox, 18)
   ctx.font = '11px Inter, sans-serif'; ctx.fillStyle = '#667169'; ctx.fillText(`${props.layout.kits} полных комплектов · площадь на комплект ${props.layout.perKit.toFixed(3)} м²`, ox, 38)
   const arrowX = ox + w + 24, arrowTop = oy + 10, arrowBottom = oy + Math.min(h - 10, 105)
   ctx.strokeStyle = '#3e6b42'; ctx.fillStyle = '#3e6b42'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(arrowX, arrowTop); ctx.lineTo(arrowX, arrowBottom); ctx.stroke(); ctx.beginPath(); ctx.moveTo(arrowX, arrowBottom + 8); ctx.lineTo(arrowX - 6, arrowBottom - 3); ctx.lineTo(arrowX + 6, arrowBottom - 3); ctx.closePath(); ctx.fill()
   ctx.save(); ctx.translate(arrowX + 17, (arrowTop + arrowBottom) / 2); ctx.rotate(Math.PI / 2); ctx.font = '700 10px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ГОФРА · ПОДАЧА', 0, 0); ctx.restore()
-  ctx.font = '10px Inter, sans-serif'; ctx.fillStyle = '#667169'; ctx.textAlign = 'left'; ctx.fillText('Припуски ко всей раскладке: 25 мм по гофре · 20 мм против', ox, rect.height - 12)
+  ctx.font = '10px Inter, sans-serif'; ctx.fillStyle = '#667169'; ctx.textAlign = 'left'; ctx.fillText(`Поля раскладки: ${props.layout.marginText}`, ox, rect.height - 12)
 }
 onMounted(() => { observer = new ResizeObserver(draw); observer.observe(canvas.value); draw() })
 watch(() => props.layout, draw, { deep: true })
