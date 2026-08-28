@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted, onBeforeUnmount } from 'vue'
 import { Box, Grid3X3, Layers3, Download, RotateCcw } from 'lucide-vue-next'
 import StripCanvas from './components/StripCanvas.vue'
 import DieLayoutCanvas from './components/DieLayoutCanvas.vue'
+import GridPicker from './components/GridPicker.vue'
 const GridScene = defineAsyncComponent(() => import('./components/GridScene.vue'))
 
 const profiles = { F: 1, E: 2, D: 2.5, B: 3, C: 4, BE: 5, BD: 5, BC: 7 }
@@ -10,6 +11,12 @@ const edgeTrim = 2.5
 const p = ref({ length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' })
 const active = ref('Чертёж')
 const tabs = ['Чертёж', '3D-модель', 'Развёртка']
+const page = ref(location.hash === '#/picker' ? 'picker' : 'designer')
+const syncPage = () => { page.value = location.hash === '#/picker' ? 'picker' : 'designer' }
+const navigate = (next) => { location.hash = next === 'picker' ? '#/picker' : '#/designer'; page.value = next }
+const applyGrid = ({ rows, cols }) => { p.value.rows = rows; p.value.cols = cols; navigate('designer') }
+onMounted(() => addEventListener('hashchange', syncPage))
+onBeforeUnmount(() => removeEventListener('hashchange', syncPage))
 const cellL = computed(() => p.value.length + p.value.gap)
 const cellW = computed(() => p.value.width + p.value.gap)
 const board = computed(() => profiles[p.value.profile])
@@ -98,19 +105,20 @@ const downloadDrawing = () => {
 
 <template>
   <div class="min-h-screen bg-[radial-gradient(circle_at_70%_-10%,#23372a_0,transparent_38%),#101411]">
-    <header class="border-b border-white/8 px-5 py-4 lg:px-9 flex items-center justify-between">
+    <header class="border-b border-white/8 px-5 py-4 lg:px-9 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3"><div class="grid h-9 w-9 place-items-center rounded-xl bg-[#d9ff64] text-[#121713]"><Grid3X3 :size="20"/></div><div><b class="tracking-tight">ГофроСетка</b><p class="m-0 text-[11px] text-white/45">конструктор разделителей</p></div></div>
-      <span class="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/50">Расчёт в реальном времени</span>
+      <nav class="flex rounded-xl border border-white/10 bg-black/15 p-1"><button @click="navigate('designer')" :class="['rounded-lg px-3 py-2 text-sm transition',page==='designer'?'bg-white text-[#121713]':'text-white/45 hover:text-white']">Конструктор</button><button @click="navigate('picker')" :class="['rounded-lg px-3 py-2 text-sm transition',page==='picker'?'bg-white text-[#121713]':'text-white/45 hover:text-white']">Подбор решётки</button></nav>
     </header>
 
-    <main class="grid gap-5 p-5 lg:grid-cols-[340px_1fr] lg:p-9">
+    <GridPicker v-if="page === 'picker'" @select="applyGrid"/>
+    <main v-else class="grid gap-5 p-5 lg:grid-cols-[340px_1fr] lg:p-9">
       <aside class="rounded-2xl border border-white/10 bg-[#171d18]/90 p-5 shadow-2xl shadow-black/20">
         <div class="mb-5"><p class="text-[11px] font-bold uppercase tracking-[.18em] text-[#d9ff64]">Параметры проекта</p><h1 class="mt-2 text-2xl font-semibold tracking-tight">Настройте ячейку</h1><p class="mt-1 text-sm leading-5 text-white/45">Размеры указываются в миллиметрах.</p></div>
         <div class="space-y-5">
           <section><h2 class="mb-3 text-sm font-medium text-white/75">Габариты продукции</h2><div class="grid grid-cols-3 gap-2"><label v-for="[key,label] in [['length','Длина'],['width','Ширина'],['height','Высота']]" :key="key" class="text-xs text-white/40">{{label}}<input v-model.number="p[key]" type="number" min="1" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none focus:border-[#d9ff64]/60"></label></div></section>
           <section><label class="text-xs text-white/40">Допуск ячейки, всего<input v-model.number="p.gap" type="number" min="0" step="0.5" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><p class="mt-1.5 text-[11px] text-white/30">Например: продукция 100 мм → ячейка 101 мм</p></section>
           <section><h2 class="mb-3 text-sm font-medium text-white/75">Производство</h2><label class="text-xs text-white/40">Способ изготовления<select v-model="p.method" @change="methodChanged" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option value="RODA">RODA</option><option value="DIE">Плоская высечка</option><option value="PLOTTER">Плоттер</option></select></label><div class="mt-2 grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Профиль<select v-model="p.profile" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option v-for="(thickness, profile) in profiles" :key="profile" :value="profile">{{ profile }} · {{ thickness }} мм</option></select></label><label class="text-xs text-white/40">Просечка<select v-model.number="p.slot" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option :value="6">6 мм</option><option :value="7">7 мм</option></select></label></div></section>
-          <section><h2 class="mb-3 text-sm font-medium text-white/75">Композиция</h2><div class="grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Колонки<input v-model.number="p.cols" type="number" min="1" max="12" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="text-xs text-white/40">Ряды<input v-model.number="p.rows" type="number" min="1" max="12" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="col-span-2 text-xs text-white/40">Высота решётки<input v-model.number="p.gridHeight" type="number" min="20" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label></div></section>
+          <section><div class="mb-3 flex items-center justify-between"><h2 class="text-sm font-medium text-white/75">Композиция</h2><button @click="navigate('picker')" class="text-xs text-[#d9ff64] hover:underline">Подобрать</button></div><div class="grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Колонки<input v-model.number="p.cols" type="number" min="1" max="30" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="text-xs text-white/40">Ряды<input v-model.number="p.rows" type="number" min="1" max="30" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="col-span-2 text-xs text-white/40">Высота решётки<input v-model.number="p.gridHeight" type="number" min="20" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label></div></section>
         </div>
         <button @click="reset" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-sm text-white/55 hover:bg-white/5"><RotateCcw :size="15"/>Сбросить параметры</button>
       </aside>
