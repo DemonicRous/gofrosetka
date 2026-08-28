@@ -32,7 +32,12 @@ const draw = () => {
   const points = [0, ...props.slots, props.length]
   for (let i = 0; i < points.length - 1; i++) arrow(ctx, startX + points[i] * sx, startX + points[i + 1] * sx, top + drawH + 27, points[i + 1] - points[i])
   arrow(ctx, startX, startX + drawW, top - 16, props.length)
-  ctx.save(); ctx.translate(15, top + drawH / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = '#28302a'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${props.height.toFixed(0)} мм`, 0, 0); ctx.restore()
+  const dimX = startX - 17
+  ctx.strokeStyle = '#3d463f'; ctx.fillStyle = '#3d463f'; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(dimX, top); ctx.lineTo(dimX, top + drawH); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(dimX, top); ctx.lineTo(dimX - 3, top + 7); ctx.lineTo(dimX + 3, top + 7); ctx.closePath(); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(dimX, top + drawH); ctx.lineTo(dimX - 3, top + drawH - 7); ctx.lineTo(dimX + 3, top + drawH - 7); ctx.closePath(); ctx.fill()
+  ctx.save(); ctx.translate(dimX - 9, top + drawH / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = '#28302a'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${props.height.toFixed(0)} мм`, 0, 0); ctx.restore()
   ctx.fillStyle = '#28302a'; ctx.font = '600 12px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${props.title} · ${props.quantity} шт.`, startX, 18)
   ctx.font = '11px Inter, sans-serif'; ctx.fillStyle = '#667169'; ctx.fillText(`Просечка ${props.slotWidth} × ${props.slotDepth.toFixed(1)} мм`, startX, 37)
 }
