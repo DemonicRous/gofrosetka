@@ -58,7 +58,8 @@ const plotterLayout = computed(() => {
     ...Array.from({ length: longStrips.value }, () => ({ w: innerL.value, type: 'L' })),
     ...Array.from({ length: crossStrips.value }, () => ({ w: innerW.value, type: 'P' })),
   ].filter(i => i.w > 0).sort((a, b) => b.w - a.w)
-  const usableW = 1560, usableH = 2460
+  // В раскладке X — против гофры (2500 мм), Y — по гофре (1600 мм).
+  const usableW = 2460, usableH = 1560
   if (!pieces.length || stripHeight.value > usableH || pieces[0].w > usableW) return null
   const maxRows = Math.floor(usableH / stripHeight.value), kitWidth = pieces.reduce((s, i) => s + i.w, 0)
   const pack = (kits) => {
@@ -73,7 +74,7 @@ const plotterLayout = computed(() => {
   }
   let low = 1, high = Math.max(1, Math.floor(usableW * maxRows / kitWidth)), bestKits = 0, bestItems = null
   while (low <= high) { const mid = Math.floor((low + high) / 2), items = pack(mid); if (items) { bestKits = mid; bestItems = items; low = mid + 1 } else high = mid - 1 }
-  return bestKits ? { sheetW: 1600, sheetH: 2500, kits: bestKits, perKit: 4 / bestKits, items: bestItems, offsetX: 20, offsetY: 20, title: 'Плоттер', marginText: 'безопасное поле 20 мм с каждой стороны' } : null
+  return bestKits ? { sheetW: 2500, sheetH: 1600, displaySize: '1600 × 2500 мм (по × против гофры)', kits: bestKits, perKit: 4 / bestKits, items: bestItems, offsetX: 20, offsetY: 20, title: 'Плоттер', marginText: '20 мм с каждой стороны · площадь листа 4 м²' } : null
 })
 const activeLayout = computed(() => p.value.method === 'DIE' ? dieLayout.value : p.value.method === 'PLOTTER' ? plotterLayout.value : null)
 const area = computed(() => (p.value.method === 'RODA' ? pieceArea.value : activeLayout.value?.perKit || 0).toFixed(3))
@@ -124,7 +125,7 @@ const downloadDrawing = () => {
             <div v-else class="w-full space-y-7"><section><div class="mb-3 flex items-end justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[.16em] text-black/40">Комплект решётки</p><h3 class="mt-1 font-semibold">Чертежи полос</h3></div><span class="text-xs text-black/40">масштаб 1:1 между осями</span></div><div class="grid gap-5 xl:grid-cols-2"><StripCanvas title="Продольная полоса" :length="innerL" :height="stripHeight" :quantity="longStrips" :slots="longSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" /><StripCanvas title="Поперечная полоса" :length="innerW" :height="stripHeight" :quantity="crossStrips" :slots="crossSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" from-top /></div></section><section v-if="p.method !== 'RODA'"><div class="mb-3"><p class="text-xs font-bold uppercase tracking-[.16em] text-black/40">{{ p.method === 'PLOTTER' ? 'Плоттер · 1600 × 2500 мм' : 'Плоская высечка' }}</p><h3 class="mt-1 font-semibold">Раскладка листа</h3></div><DieLayoutCanvas v-if="activeLayout" :layout="activeLayout"/><div v-else class="grid h-[300px] place-items-center text-center text-black/45"><p>Комплект не помещается в рабочую область листа.<br>Уменьшите размеры или высоту решётки.</p></div></section></div>
           </div>
         </div>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${boxLength.toFixed(0)} × ${boxWidth.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,p.method === 'RODA' ? 'Фактическая площадь' : 'Площадь на комплект',`${area} м²`],[Download,activeLayout ? 'Лист / комплектов' : 'Комплект / просечка',activeLayout ? `${activeLayout.sheetW}×${activeLayout.sheetH} · ${activeLayout.kits} шт.` : `${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${boxLength.toFixed(0)} × ${boxWidth.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,p.method === 'RODA' ? 'Фактическая площадь' : 'Площадь на комплект',`${area} м²`],[Download,activeLayout ? 'Лист / комплектов' : 'Комплект / просечка',activeLayout ? `${activeLayout.displaySize || `${activeLayout.sheetW}×${activeLayout.sheetH}`} · ${activeLayout.kits} шт.` : `${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
         <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм; максимальная высота продукта или решётки + толщина картона. Перед производством проверьте технологические допуски.</p>
       </section>
     </main>

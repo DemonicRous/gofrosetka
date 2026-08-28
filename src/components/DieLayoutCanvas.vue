@@ -18,7 +18,7 @@ const draw = () => {
     ctx.strokeRect(ox + (item.x + props.layout.offsetX) * scale, oy + (item.y + props.layout.offsetY) * scale, item.w * scale, item.h * scale)
     if (item.w * scale > 42) { ctx.fillStyle = '#443821'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`${item.type} · К${item.kit}`, ox + (item.x + props.layout.offsetX + item.w / 2) * scale, oy + (item.y + props.layout.offsetY + item.h / 2) * scale + 3) }
   }
-  ctx.fillStyle = '#28302a'; ctx.font = '700 14px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${props.layout.title} · ${props.layout.sheetW} × ${props.layout.sheetH} мм`, ox, 18)
+  ctx.fillStyle = '#28302a'; ctx.font = '700 14px Inter, sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${props.layout.title} · ${props.layout.displaySize || `${props.layout.sheetW} × ${props.layout.sheetH} мм`}`, ox, 18)
   ctx.font = '11px Inter, sans-serif'; ctx.fillStyle = '#667169'; ctx.fillText(`${props.layout.kits} полных комплектов · площадь на комплект ${props.layout.perKit.toFixed(3)} м²`, ox, 38)
   const arrowX = ox + w + 24, arrowTop = oy + 10, arrowBottom = oy + Math.min(h - 10, 105)
   ctx.strokeStyle = '#3e6b42'; ctx.fillStyle = '#3e6b42'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(arrowX, arrowTop); ctx.lineTo(arrowX, arrowBottom); ctx.stroke(); ctx.beginPath(); ctx.moveTo(arrowX, arrowBottom + 8); ctx.lineTo(arrowX - 6, arrowBottom - 3); ctx.lineTo(arrowX + 6, arrowBottom - 3); ctx.closePath(); ctx.fill()
