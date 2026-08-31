@@ -6,9 +6,11 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 const props = defineProps({
   length: Number, width: Number, height: Number, gridHeight: Number,
   rows: Number, cols: Number, cellL: Number, cellW: Number, board: Number,
+  initialCells: { type: Array, default: () => [] },
 })
+const emit = defineEmits(['ready'])
 const host = ref(null)
-const selectedCells = ref(new Set())
+const selectedCells = ref(new Set(props.initialCells))
 let renderer, scene, camera, controls, gridGroup, frame, observer, hitTargets = [], products = new Map(), pointerStart
 
 const disposeGroup = (group) => {
@@ -85,6 +87,26 @@ const toggleCell = (key) => {
 }
 const clearProducts = () => { selectedCells.value = new Set() }
 
+function captureForPdf() {
+  if (!renderer || !gridGroup) throw new Error('3D-модель ещё не готова.')
+  products.forEach((mesh,key) => { mesh.visible=selectedCells.value.has(key); mesh.position.y=mesh.userData.targetY })
+  gridGroup.updateMatrixWorld(true)
+  const bounds=new THREE.Box3()
+  gridGroup.children.filter(o=>o.visible&&!hitTargets.includes(o)).forEach(o=>bounds.union(new THREE.Box3().setFromObject(o)))
+  const center=bounds.getCenter(new THREE.Vector3()),radius=bounds.getSize(new THREE.Vector3()).length()/2
+  const view=new THREE.OrthographicCamera(-1,1,1,-1,.01,Math.max(1000,radius*10))
+  view.position.copy(center).add(new THREE.Vector3(1,.85,1).normalize().multiplyScalar(radius*4+1));view.lookAt(center);view.updateMatrixWorld(true)
+  const projected=new THREE.Box3()
+  for(const x of [bounds.min.x,bounds.max.x]) for(const y of [bounds.min.y,bounds.max.y]) for(const z of [bounds.min.z,bounds.max.z]) projected.expandByPoint(new THREE.Vector3(x,y,z).applyMatrix4(view.matrixWorldInverse))
+  const mid=projected.getCenter(new THREE.Vector3()),size=projected.getSize(new THREE.Vector3()),aspect=1600/1000
+  const h=Math.max(size.y,size.x/aspect)*1.12,w=h*aspect
+  view.left=mid.x-w/2;view.right=mid.x+w/2;view.top=mid.y+h/2;view.bottom=mid.y-h/2;view.updateProjectionMatrix()
+  const oldSize=renderer.getSize(new THREE.Vector2()),background=scene.background
+  try { renderer.setSize(1600,1000,false);scene.background=new THREE.Color(0xffffff);renderer.render(scene,view);return renderer.domElement.toDataURL('image/png') }
+  finally { scene.background=background;renderer.setSize(oldSize.x,oldSize.y,false) }
+}
+defineExpose({captureForPdf,getOccupiedCells:()=>[...selectedCells.value]})
+
 onMounted(() => {
   scene = new THREE.Scene()
   scene.background = new THREE.Color(0xecebe4)
@@ -126,6 +148,7 @@ onMounted(() => {
     renderer.render(scene, camera)
   }
   animate()
+  emit('ready')
 })
 
 watch(() => [props.length, props.width, props.height, props.gridHeight, props.rows, props.cols, props.cellL, props.cellW, props.board], rebuild)

@@ -5,6 +5,9 @@ import StripCanvas from './components/StripCanvas.vue'
 import DieLayoutCanvas from './components/DieLayoutCanvas.vue'
 import GridPicker from './components/GridPicker.vue'
 const GridScene = defineAsyncComponent(() => import('./components/GridScene.vue'))
+const PdfExport = defineAsyncComponent(() => import('./components/PdfExport.vue'))
+const pdfProject = ref(null)
+const liveScene = ref(null)
 
 const profiles = { F: 1, E: 2, D: 2.5, B: 3, C: 4, BE: 5, BD: 5, BC: 7 }
 const edgeTrim = 2.5
@@ -88,6 +91,16 @@ const area = computed(() => (p.value.method === 'RODA' ? pieceArea.value : activ
 const cells = computed(() => p.value.rows * p.value.cols)
 const reset = () => p.value = { length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' }
 const methodChanged = () => { p.value.slot = p.value.method === 'RODA' ? 7 : 6 }
+const openPdf = () => {
+  pdfProject.value = JSON.parse(JSON.stringify({
+    ...p.value, gridHeight: stripHeight.value, board: board.value,
+    stripL: innerL.value, stripW: innerW.value, cellL: cellL.value, cellW: cellW.value,
+    boxL: boxLength.value, boxW: boxWidth.value, boxH: boxHeight.value,
+    slotDepth: slotDepth.value, longSlots: longSlotPositions.value, crossSlots: crossSlotPositions.value,
+    layout: activeLayout.value, occupiedCells: liveScene.value?.getOccupiedCells() || [],
+    methodLabel: {RODA:'RODA',DIE:'Плоская высечка',PLOTTER:'Плоттер'}[p.value.method],
+  }))
+}
 const downloadDrawing = () => {
   const scale = 800 / Math.max(innerL.value, innerW.value)
   const w = innerL.value * scale, h = innerW.value * scale
@@ -124,12 +137,13 @@ const downloadDrawing = () => {
       </aside>
 
       <section class="min-w-0">
+        <div class="mb-3 flex justify-end"><button @click="openPdf" class="flex items-center gap-2 rounded-xl bg-[#d9ff64] px-4 py-2.5 text-sm font-semibold text-[#121713] hover:bg-[#e6ff99]"><Download :size="16"/>Сохранить PDF</button></div>
         <div class="mb-4 flex flex-wrap items-end justify-between gap-4"><div><p class="text-sm text-white/45">Проект</p><h2 class="text-2xl font-semibold">Решётка {{ p.cols }} × {{ p.rows }} <span class="text-white/25">·</span> {{ cells }} ячеек</h2></div><div class="flex flex-wrap gap-2"><button @click="downloadDrawing" class="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/65 hover:bg-white/5"><Download :size="15"/>SVG</button><div class="flex rounded-xl border border-white/10 bg-black/15 p-1"><button v-for="tab in tabs" :key="tab" @click="active=tab" :class="['rounded-lg px-4 py-2 text-sm transition', active===tab ? 'bg-white text-[#121713]' : 'text-white/45 hover:text-white']">{{tab}}</button></div></div></div>
         <div class="overflow-hidden rounded-2xl border border-white/10 bg-[#ecebe4] text-[#1a211c]">
           <div class="flex items-center justify-between border-b border-black/10 px-5 py-3 text-xs uppercase tracking-widest text-black/45"><span>{{ active }}</span><span>масштаб автоматически</span></div>
           <div class="grid min-h-[430px] place-items-center p-8">
             <div v-if="active==='Чертёж'" class="relative w-full max-w-[720px]" :style="{aspectRatio: innerL+'/'+innerW}"><div class="absolute inset-0 border-2 border-[#273229] bg-[linear-gradient(135deg,#f7f6ee,#e5e4dc)] shadow-xl"></div><div class="absolute inset-0 grid" :style="{gridTemplateColumns:`repeat(${p.cols},1fr)`,gridTemplateRows:`repeat(${p.rows},1fr)`}"><div v-for="n in cells" :key="n" class="grid place-items-center border border-[#556158]/60 text-[clamp(9px,1.2vw,14px)] text-black/35">{{n}}</div></div><span class="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs">{{ innerL.toFixed(0) }} мм</span><span class="absolute -right-16 top-1/2 -translate-y-1/2 rotate-90 text-xs">{{ innerW.toFixed(0) }} мм</span></div>
-            <GridScene v-else-if="active==='3D-модель'" :length="p.length" :width="p.width" :height="p.height" :grid-height="stripHeight" :rows="p.rows" :cols="p.cols" :cell-l="cellL" :cell-w="cellW" :board="board" />
+            <GridScene v-else-if="active==='3D-модель'" ref="liveScene" :length="p.length" :width="p.width" :height="p.height" :grid-height="stripHeight" :rows="p.rows" :cols="p.cols" :cell-l="cellL" :cell-w="cellW" :board="board" />
             <div v-else class="w-full space-y-7"><section><div class="mb-3 flex items-end justify-between gap-3"><div><p class="text-xs font-bold uppercase tracking-[.16em] text-black/40">Комплект решётки</p><h3 class="mt-1 font-semibold">Чертежи полос</h3></div><span class="text-xs text-black/40">масштаб 1:1 между осями</span></div><div class="grid gap-5 xl:grid-cols-2"><StripCanvas title="Продольная полоса" :length="innerL" :height="stripHeight" :quantity="longStrips" :slots="longSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" /><StripCanvas title="Поперечная полоса" :length="innerW" :height="stripHeight" :quantity="crossStrips" :slots="crossSlotPositions" :slot-width="p.slot" :slot-depth="slotDepth" from-top /></div></section><section v-if="p.method !== 'RODA'"><div class="mb-3"><p class="text-xs font-bold uppercase tracking-[.16em] text-black/40">{{ p.method === 'PLOTTER' ? 'Плоттер · 1600 × 2500 мм' : 'Плоская высечка' }}</p><h3 class="mt-1 font-semibold">Раскладка листа</h3></div><DieLayoutCanvas v-if="activeLayout" :layout="activeLayout"/><div v-else class="grid h-[300px] place-items-center text-center text-black/45"><p>Комплект не помещается в рабочую область листа.<br>Уменьшите размеры или высоту решётки.</p></div></section></div>
           </div>
         </div>
@@ -137,5 +151,6 @@ const downloadDrawing = () => {
         <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм; максимальная высота продукта или решётки + толщина картона. Перед производством проверьте технологические допуски.</p>
       </section>
     </main>
+    <PdfExport v-if="pdfProject" :model="pdfProject" @close="pdfProject=null"/>
   </div>
 </template>
