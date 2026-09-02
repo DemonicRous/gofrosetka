@@ -17,7 +17,17 @@ const tabs = ['Чертёж', '3D-модель', 'Развёртка']
 const page = ref(location.hash === '#/picker' ? 'picker' : 'designer')
 const syncPage = () => { page.value = location.hash === '#/picker' ? 'picker' : 'designer' }
 const navigate = (next) => { location.hash = next === 'picker' ? '#/picker' : '#/designer'; page.value = next }
-const applyGrid = ({ rows, cols }) => { p.value.rows = rows; p.value.cols = cols; navigate('designer') }
+const applyGrid = ({ rows, cols, productL, productW, profile, gap }) => {
+  p.value.rows = rows
+  p.value.cols = cols
+  if (productL != null && productW != null) {
+    p.value.length = Number(productL.toFixed(2))
+    p.value.width = Number(productW.toFixed(2))
+    p.value.profile = profile
+    p.value.gap = gap
+  }
+  navigate('designer')
+}
 onMounted(() => addEventListener('hashchange', syncPage))
 onBeforeUnmount(() => removeEventListener('hashchange', syncPage))
 const cellL = computed(() => p.value.length + p.value.gap)
