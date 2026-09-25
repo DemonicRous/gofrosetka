@@ -38,7 +38,7 @@ const innerW = computed(() => Math.max(0, cellW.value * p.value.rows + board.val
 const stripHeight = computed(() => Math.max(20, p.value.gridHeight))
 const boxLength = computed(() => innerL.value + 5)
 const boxWidth = computed(() => innerW.value + 5)
-const boxHeight = computed(() => Math.max(p.value.height, stripHeight.value) + board.value)
+const boxHeight = computed(() => Math.max(p.value.height, stripHeight.value) + 5)
 const longStrips = computed(() => Math.max(0, p.value.rows - 1))
 const crossStrips = computed(() => Math.max(0, p.value.cols - 1))
 const slotDepth = computed(() => stripHeight.value / 2 + 5)
@@ -158,7 +158,7 @@ const downloadDrawing = () => {
           </div>
         </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${boxLength.toFixed(0)} × ${boxWidth.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,p.method === 'RODA' ? 'Фактическая площадь' : 'Площадь на комплект',`${area} м²`],[Download,activeLayout ? 'Лист / комплектов' : 'Комплект / просечка',activeLayout ? `${activeLayout.displaySize || `${activeLayout.sheetW}×${activeLayout.sheetH}`} · ${activeLayout.kits} шт.` : `${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
-        <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм; максимальная высота продукта или решётки + толщина картона. Перед производством проверьте технологические допуски.</p>
+        <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм; максимальная высота продукта или решётки + 5 мм. Перед производством проверьте технологические допуски.</p>
       </section>
     </main>
     <PdfExport v-if="pdfProject" :model="pdfProject" @close="pdfProject=null"/>

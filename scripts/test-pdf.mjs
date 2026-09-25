@@ -8,7 +8,7 @@ globalThis.document={createElement:()=>createCanvas(1,1)}
 globalThis.Image=class extends Image {async decode(){}}
 const {buildPdf}=await import('../src/lib/pdfExport.js')
 const model={length:100,width:100,height:200,gridHeight:160,rows:3,cols:3,profile:'D',board:2.5,slot:6,slotDepth:85,
-  cellL:101,cellW:101,stripL:303,stripW:303,boxL:308,boxW:308,boxH:202.5,longSlots:[99.75,203.25],crossSlots:[99.75,203.25],methodLabel:'Плоттер',
+  cellL:101,cellW:101,stripL:303,stripW:303,boxL:308,boxW:308,boxH:205,longSlots:[99.75,203.25],crossSlots:[99.75,203.25],methodLabel:'Плоттер',
   layout:{title:'Плоттер',sheetW:2500,sheetH:1600,kits:18,perKit:4/18,offsetX:20,offsetY:20,marginText:'20 мм с каждой стороны',items:Array.from({length:72},(_,i)=>({x:i%8*303,y:Math.floor(i/8)*160,w:303,h:160,type:i%4<2?'L':'P',kit:Math.floor(i/4)+1}))}}
 await mkdir('tmp/pdfs',{recursive:true})
 // Scene image is a fixture here; WebGL capture is handled by GridScene in the app.
