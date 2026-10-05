@@ -7,9 +7,9 @@ const {createCanvas,Image}=require(process.env.CANVAS_MODULE||'canvas')
 globalThis.document={createElement:()=>createCanvas(1,1)}
 globalThis.Image=class extends Image {async decode(){}}
 const {buildPdf}=await import('../src/lib/pdfExport.js')
-const model={length:100,width:100,height:200,gridHeight:160,rows:3,cols:3,profile:'D',board:2.5,slot:6,slotDepth:85,
-  cellL:101,cellW:101,stripL:303,stripW:303,boxL:308,boxW:308,boxH:205,longSlots:[99.75,203.25],crossSlots:[99.75,203.25],methodLabel:'Плоттер',
-  layout:{title:'Плоттер',sheetW:2500,sheetH:1600,kits:18,perKit:4/18,offsetX:20,offsetY:20,marginText:'20 мм с каждой стороны',items:Array.from({length:72},(_,i)=>({x:i%8*303,y:Math.floor(i/8)*160,w:303,h:160,type:i%4<2?'L':'P',kit:Math.floor(i/4)+1}))}}
+const model={length:100,width:100,height:200,gridHeight:195,rows:3,cols:3,profile:'D',board:2.5,slot:6,slotDepth:102.5,
+  cellL:101,cellW:101,stripL:303,stripW:303,boxL:308,boxW:308,boxH:203,longSlots:[99.75,203.25],crossSlots:[99.75,203.25],methodLabel:'Плоттер',
+  layout:{title:'Плоттер',sheetW:2500,sheetH:1600,kits:14,perKit:4/14,offsetX:20,offsetY:20,marginText:'20 мм с каждой стороны',items:Array.from({length:56},(_,i)=>({x:i%8*303,y:Math.floor(i/8)*195,w:303,h:195,type:i%4<2?'L':'P',kit:Math.floor(i/4)+1}))}}
 await mkdir('tmp/pdfs',{recursive:true})
 // Scene image is a fixture here; WebGL capture is handled by GridScene in the app.
 const fixture=createCanvas(1600,1000);const ctx=fixture.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,1600,1000);ctx.fillStyle='#bda06d';ctx.fillRect(400,300,800,400)
@@ -23,3 +23,4 @@ await assert.rejects(buildPdf(model,[]),/Выберите/)
 await assert.rejects(buildPdf({...model,layout:null},['layout']),/нет раскладки/)
 await assert.rejects(buildPdf({...model,rows:1.5},['plan']),/целое/)
 console.log('PDF checks passed: 4/3/1 pages, A4 landscape, selection and validation.')
+

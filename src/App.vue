@@ -11,7 +11,7 @@ const liveScene = ref(null)
 
 const profiles = { F: 1, E: 2, D: 2.5, B: 3, C: 4, BE: 5, BD: 5, BC: 7 }
 const edgeTrim = 2.5
-const p = ref({ length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' })
+const p = ref({ length: 100, width: 100, height: 200, gridHeight: null, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' })
 const active = ref('Чертёж')
 const tabs = ['Чертёж', '3D-модель', 'Развёртка']
 const page = ref(location.hash === '#/picker' ? 'picker' : 'designer')
@@ -35,12 +35,10 @@ const cellW = computed(() => p.value.width + p.value.gap)
 const board = computed(() => profiles[p.value.profile])
 const innerL = computed(() => Math.max(0, cellL.value * p.value.cols + board.value * (p.value.cols - 1) - edgeTrim * 2))
 const innerW = computed(() => Math.max(0, cellW.value * p.value.rows + board.value * (p.value.rows - 1) - edgeTrim * 2))
-const stripHeight = computed(() => Math.max(20, p.value.gridHeight))
+const stripHeight = computed(() => Math.max(1, p.value.gridHeight ?? (Number(p.value.height) - 5)))
 const boxLength = computed(() => innerL.value + 5)
 const boxWidth = computed(() => innerW.value + 5)
-const boxHeight = computed(() => p.value.height > stripHeight.value
-  ? p.value.height + 3
-  : stripHeight.value + 5)
+const boxHeight = computed(() => Number(p.value.height) + (p.value.profile === 'D' ? profiles.B : board.value))
 const longStrips = computed(() => Math.max(0, p.value.rows - 1))
 const crossStrips = computed(() => Math.max(0, p.value.cols - 1))
 const slotDepth = computed(() => stripHeight.value / 2 + 5)
@@ -101,7 +99,7 @@ const plotterLayout = computed(() => {
 const activeLayout = computed(() => p.value.method === 'DIE' ? dieLayout.value : p.value.method === 'PLOTTER' ? plotterLayout.value : null)
 const area = computed(() => (p.value.method === 'RODA' ? pieceArea.value : activeLayout.value?.perKit || 0).toFixed(3))
 const cells = computed(() => p.value.rows * p.value.cols)
-const reset = () => p.value = { length: 100, width: 100, height: 200, gridHeight: 160, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' }
+const reset = () => p.value = { length: 100, width: 100, height: 200, gridHeight: null, gap: 1, rows: 3, cols: 3, profile: 'D', slot: 7, method: 'RODA' }
 const methodChanged = () => { p.value.slot = p.value.method === 'RODA' ? 7 : 6 }
 const openPdf = () => {
   pdfProject.value = JSON.parse(JSON.stringify({
@@ -143,7 +141,7 @@ const downloadDrawing = () => {
           <section><h2 class="mb-3 text-sm font-medium text-white/75">Габариты продукции</h2><div class="grid grid-cols-3 gap-2"><label v-for="[key,label] in [['length','Длина'],['width','Ширина'],['height','Высота']]" :key="key" class="text-xs text-white/40">{{label}}<input v-model.number="p[key]" type="number" min="1" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white outline-none focus:border-[#d9ff64]/60"></label></div></section>
           <section><label class="text-xs text-white/40">Допуск ячейки, всего<input v-model.number="p.gap" type="number" min="0" step="0.5" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><p class="mt-1.5 text-[11px] text-white/30">Например: продукция 100 мм → ячейка 101 мм</p></section>
           <section><h2 class="mb-3 text-sm font-medium text-white/75">Производство</h2><label class="text-xs text-white/40">Способ изготовления<select v-model="p.method" @change="methodChanged" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option value="RODA">RODA</option><option value="DIE">Плоская высечка</option><option value="PLOTTER">Плоттер</option></select></label><div class="mt-2 grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Профиль<select v-model="p.profile" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option v-for="(thickness, profile) in profiles" :key="profile" :value="profile">{{ profile }} · {{ thickness }} мм</option></select></label><label class="text-xs text-white/40">Просечка<select v-model.number="p.slot" class="mt-1 w-full rounded-lg border border-white/10 bg-[#121713] px-3 py-2.5 text-sm text-white"><option :value="6">6 мм</option><option :value="7">7 мм</option></select></label></div></section>
-          <section><div class="mb-3 flex items-center justify-between"><h2 class="text-sm font-medium text-white/75">Композиция</h2><button @click="navigate('picker')" class="text-xs text-[#d9ff64] hover:underline">Подобрать</button></div><div class="grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Колонки<input v-model.number="p.cols" type="number" min="1" max="30" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="text-xs text-white/40">Ряды<input v-model.number="p.rows" type="number" min="1" max="30" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="col-span-2 text-xs text-white/40">Высота решётки<input v-model.number="p.gridHeight" type="number" min="20" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label></div></section>
+          <section><div class="mb-3 flex items-center justify-between"><h2 class="text-sm font-medium text-white/75">Композиция</h2><button @click="navigate('picker')" class="text-xs text-[#d9ff64] hover:underline">Подобрать</button></div><div class="grid grid-cols-2 gap-2"><label class="text-xs text-white/40">Колонки<input v-model.number="p.cols" type="number" min="1" max="30" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="text-xs text-white/40">Ряды<input v-model.number="p.rows" type="number" min="1" max="30" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label><label class="col-span-2 text-xs text-white/40">Высота решётки<input :value="stripHeight" @input="p.gridHeight = $event.target.value === '' ? null : Number($event.target.value)" type="number" min="1" class="mt-1 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm"></label></div></section>
         </div>
         <button @click="reset" class="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-sm text-white/55 hover:bg-white/5"><RotateCcw :size="15"/>Сбросить параметры</button>
       </aside>
@@ -160,9 +158,10 @@ const downloadDrawing = () => {
           </div>
         </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${boxLength.toFixed(0)} × ${boxWidth.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,p.method === 'RODA' ? 'Фактическая площадь' : 'Площадь на комплект',`${area} м²`],[Download,activeLayout ? 'Лист / комплектов' : 'Комплект / просечка',activeLayout ? `${activeLayout.displaySize || `${activeLayout.sheetW}×${activeLayout.sheetH}`} · ${activeLayout.kits} шт.` : `${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
-        <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм. Высота: если продукт выше решётки — высота продукта + 3 мм; иначе — высота решётки + 5 мм. Перед производством проверьте технологические допуски.</p>
+        <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм. Высота решётки по умолчанию: высота продукта − 5 мм (минимум 1 мм); можно задать вручную. Высота короба: высота продукта + толщина профиля (для D — 3 мм, как для B). Перед производством проверьте технологические допуски.</p>
       </section>
     </main>
     <PdfExport v-if="pdfProject" :model="pdfProject" @close="pdfProject=null"/>
   </div>
 </template>
+
