@@ -35,10 +35,10 @@ const cellW = computed(() => p.value.width + p.value.gap)
 const board = computed(() => profiles[p.value.profile])
 const innerL = computed(() => Math.max(0, cellL.value * p.value.cols + board.value * (p.value.cols - 1) - edgeTrim * 2))
 const innerW = computed(() => Math.max(0, cellW.value * p.value.rows + board.value * (p.value.rows - 1) - edgeTrim * 2))
-const stripHeight = computed(() => Math.max(1, p.value.gridHeight ?? (Number(p.value.height) - 5)))
+const stripHeight = computed(() => Math.max(1, p.value.gridHeight ?? Number(p.value.height)))
 const boxLength = computed(() => innerL.value + 5)
 const boxWidth = computed(() => innerW.value + 5)
-const boxHeight = computed(() => Number(p.value.height) + (p.value.profile === 'D' ? profiles.B : board.value))
+const boxHeight = computed(() => Math.max(Number(p.value.height), stripHeight.value) + 5)
 const longStrips = computed(() => Math.max(0, p.value.rows - 1))
 const crossStrips = computed(() => Math.max(0, p.value.cols - 1))
 const slotDepth = computed(() => stripHeight.value / 2 + 5)
@@ -158,7 +158,7 @@ const downloadDrawing = () => {
           </div>
         </div>
         <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><div v-for="item in [[Box,'Внутренний короб',`${boxLength.toFixed(0)} × ${boxWidth.toFixed(0)} × ${boxHeight.toFixed(0)} мм`],[Grid3X3,'Ячейка / профиль',`${cellL} × ${cellW} мм · ${p.profile}`],[Layers3,p.method === 'RODA' ? 'Фактическая площадь' : 'Площадь на комплект',`${area} м²`],[Download,activeLayout ? 'Лист / комплектов' : 'Комплект / просечка',activeLayout ? `${activeLayout.displaySize || `${activeLayout.sheetW}×${activeLayout.sheetH}`} · ${activeLayout.kits} шт.` : `${longStrips + crossStrips} полос · ${p.slot} мм`]]" :key="item[1]" class="rounded-xl border border-white/10 bg-[#171d18] p-4"><component :is="item[0]" :size="18" class="mb-4 text-[#d9ff64]"/><p class="text-xs text-white/40">{{item[1]}}</p><b class="mt-1 block text-sm">{{item[2]}}</b></div></div>
-        <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм. Высота решётки по умолчанию: высота продукта − 5 мм (минимум 1 мм); можно задать вручную. Высота короба: высота продукта + толщина профиля (для D — 3 мм, как для B). Перед производством проверьте технологические допуски.</p>
+        <p class="mt-4 text-xs leading-5 text-white/35">Короб: длина продольной полосы + 5 мм; длина поперечной полосы + 5 мм. Высота решётки по умолчанию: высота продукта (минимум 1 мм); можно задать вручную. Внутренняя высота короба: большая из высот продукта и решётки + 5 мм. Перед производством проверьте технологические допуски.</p>
       </section>
     </main>
     <PdfExport v-if="pdfProject" :model="pdfProject" @close="pdfProject=null"/>
